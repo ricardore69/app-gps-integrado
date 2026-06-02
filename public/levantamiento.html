@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Levantamiento</title>
+  <!--<div>
+      <strong>ID del levantamiento:</strong>
+      <span id="levantamiento-id"></span>
+    </div>-->
+  <link rel="stylesheet" href="levantamiento.css" />
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+  <!-- GeometryUtil para calcular área -->
+  <script src="https://unpkg.com/leaflet-geometryutil"></script>
+
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+</head>
+
+<body>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 20px;">
+    <h1>geoZapp</h1>
+    <button id="btn-logout"
+      style="padding: 8px 15px; cursor: pointer; background-color: #f44336; color: white; border: none; border-radius: 4px;">Cerrar
+      Sesión</button>
+  </div>
+
+  <div id="formulario-container">
+    <form id="formulario">
+      <h3>GPS en tiempo real</h3>
+      <p>Latitud: <span id="lat">--</span></p>
+      <p>Longitud: <span id="lon">--</span></p>
+      <p>Satélites: <span id="sat">--</span></p>
+      <p>Precisión: <span id="prec">--</span></p>
+
+      <hr>
+      <input type="text" id="latitud" placeholder="Latitud" />
+      <input type="text" id="longitud" placeholder="Longitud" />
+      <input type="text" id="descripcion" placeholder="Descripción" />
+      <input type="number" id="satelites" placeholder="Satélites" />
+      <input type="number" id="precision" placeholder="Precisión" />
+
+      <div style="margin: 10px 0;">
+        <label for="select-puerto">Puerto COM:</label>
+        <select id="select-puerto"></select>
+      </div>
+      <div id="gps-status" class="gps-status">Estado GPS: --</div>
+      <button id="guardar" type="button">Guardar</button>
+    </form>
+  </div>
+
+  <div id="contenedor-tabla-mapa">
+    <div id="tabla-container">
+      <table id="tabla-puntos">
+        <thead>
+          <tr>
+            <th>Punto</th>
+            <th>Latitud</th>
+            <th>Longitud</th>
+            <th>Descripción</th>
+            <th>Satelites</th>
+            <th>Precisión</th>
+            <th style="width: 125px">Fecha</th>
+            <th>Seleccionar</th>
+            <th>Editar</th>
+            <th>Eliminar</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="mapa"></div>
+    <!-- Estilo básico para el panel de distancia flotante -->
+    <style>
+      .panel-info-flotante {
+        position: absolute;
+        top: 80px;
+        /* Bajamos el panel para no tapar los controles del mapa */
+        right: 20px;
+        background-color: #333;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        z-index: 2000;
+        font-size: 1.1rem;
+        font-weight: bold;
+        pointer-events: none;
+        /* Evita interferir con clics en el mapa */
+      }
+
+      /* Estilos para notificaciones */
+      .app-notification {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 10px 20px;
+        border-radius: 5px;
+        color: white;
+        z-index: 9999;
+        display: none;
+        font-weight: bold;
+      }
+
+      .app-notification.info {
+        background-color: #2196F3;
+      }
+
+      .app-notification.success {
+        background-color: #4CAF50;
+      }
+
+      .app-notification.error {
+        background-color: #f44336;
+      }
+    </style>
+  </div>
+
+  <div id="medidas-poligono" style="margin-top: 10px; font-weight: bold">
+    <div id="area">Área: ---</div>
+    <div id="perimetro">Perímetro: ---</div>
+  </div>
+  <button id="regresar">Regresar</button>
+  <button id="limpiar">Limpiar</button>
+
+  <!-- Cargar proj4.js correctamente -->
+  <script src="https://cdn.jsdelivr.net/npm/proj4@2.11.0/dist/proj4.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script type="module" src="levantamiento.js"></script>
+  <!-- Finalmente cargar replanteo.js -->
+  <script type="module" src="replanteo.js"></script>
+</body>
+
+</html>

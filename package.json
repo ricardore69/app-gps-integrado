@@ -1,0 +1,17 @@
+{
+    "name": "geozapp-electron",
+    "version": "1.0.0",
+    "description": "Aplicación de escritorio GPS con Electron",
+    "main": "electron-main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "electron": "^26.6.10"
+    },
+    "dependencies": {
+        "serialport": "^13.0.0"
+    }
+}

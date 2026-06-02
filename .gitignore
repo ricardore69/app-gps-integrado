@@ -1,0 +1,13 @@
+# Dependencias
+node_modules/
+
+# Construcción y salida
+dist/
+out/
+
+# Logs y archivos temporales
+*.log
+.DS_Store
+
+# Configuración de VS Code
+.vscode/

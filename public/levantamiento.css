@@ -1,0 +1,162 @@
+/* Reset básico */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background-color: #f0f2f5;
+  color: #333;
+  padding: 1em;
+}
+
+header {
+  background-color: #005f73;
+  color: white;
+  padding: 1em 2em;
+  text-align: center;
+  margin-bottom: 1em;
+  border-radius: 6px;
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Estilos para el título principal */
+h1 {
+  color: #08898b;
+  /* Cambia este color si quieres otro */
+  text-align: center;
+  /* Centra horizontalmente */
+  margin-bottom: 1em;
+  /* Espacio debajo del título */
+}
+
+/* Formulario levantamiento */
+#form-levantamiento {
+  width: 100%;
+  background: white;
+  padding: 1em 1.5em;
+  margin-bottom: 1em;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+#form-levantamiento label {
+  font-weight: 600;
+}
+
+#form-levantamiento input,
+#form-levantamiento select,
+#form-levantamiento button {
+  padding: 0.3em 0.5em;
+  font-size: 1em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#form-levantamiento input[type="number"] {
+  width: 110px;
+}
+
+#form-levantamiento button {
+  background-color: #0a9396;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+  padding: 0.4em 1em;
+  border-radius: 4px;
+}
+
+#form-levantamiento button:hover {
+  background-color: #007f7f;
+}
+
+/* Contenedor tabla + mapa */
+#contenedor-tabla-mapa {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 1em;
+  height: 500px;
+}
+
+/* Tabla puntos */
+#tabla-container {
+  flex: 1 !important;
+  width: 50% !important;
+  max-width: 50%;
+  overflow-y: auto;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+}
+
+#tabla-puntos table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#tabla-puntos th,
+#tabla-puntos td {
+  padding: 0.6em 0.7em;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+  font-size: 0.6em;
+}
+
+#tabla-puntos thead {
+  background-color: #0a9396;
+  color: white;
+  font-weight: 600;
+}
+
+/* Ocultar columnas Satélites, Precisión y Fecha */
+#tabla-puntos th:nth-child(5),
+#tabla-puntos th:nth-child(6),
+#tabla-puntos th:nth-child(7),
+#tabla-puntos td:nth-child(5),
+#tabla-puntos td:nth-child(6),
+#tabla-puntos td:nth-child(7) {
+  display: none;
+}
+
+/* Mapa */
+#mapa {
+  width: 50%;
+  max-width: 50%;
+  height: 500px !important;
+  flex: 1;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.1);
+  background-color: #e0e0e0;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  #contenedor-puntos-mapa {
+    flex-direction: column;
+    height: auto;
+  }
+
+  #tabla-puntos,
+  #mapa {
+    height: 300px;
+    width: 100%;
+  }
+
+  .fila-activa {
+    background: #d1f7ff !important;
+    transition: 0.2s;
+  }
+}

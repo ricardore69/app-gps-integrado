@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login GeoZapp</title>
+  <link rel="stylesheet" href="login.css" />
+</head>
+
+<body>
+  <div class="form-container">
+    <h1>GeoZapp</h1>
+
+    <div class="tabs">
+      <button id="tab-login" class="active">Iniciar sesión</button>
+      <button id="tab-register">Registrarse</button>
+    </div>
+
+    <!-- Formulario de inicio de sesión -->
+    <form id="form-login">
+      <input type="email" id="login-email" placeholder="Correo electrónico" required />
+      <input type="password" id="login-password" placeholder="Contraseña" required />
+      <button type="button" id="btn-login">Entrar</button>
+    </form>
+    <!-- Formulario de registro -->
+    <form id="form-register" style="display: none">
+      <input type="text" id="register-nombre" placeholder="Nombre completo" required />
+      <input type="email" id="register-email" placeholder="Correo electrónico" required />
+      <input type="password" id="register-password" placeholder="Contraseña" required />
+      <button type="button" id="btn-register">Registrarse</button>
+    </form>
+
+    <div id="mensaje" class="mensaje"></div>
+  </div>
+
+  <script type="module" src="login.js"></script>
+</body>
+
+</html>

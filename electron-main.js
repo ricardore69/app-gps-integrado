@@ -77,7 +77,7 @@ function conectarGPS(pathPuerto) {
 }
 
 function iniciarPuerto(pathPuerto) {
-    console.log(`📡 Intentando conectar al GPS en ${pathPuerto}...`);
+    console.log(`📡 Attempting to connect to GPS on ${pathPuerto}...`);
     port = new SerialPort({
         path: pathPuerto,
         baudRate: 9600,
@@ -90,7 +90,12 @@ function iniciarPuerto(pathPuerto) {
         if (err) {
             gpsConectadoGlobal = false;
             ultimoErrorGps = err.message;
-            console.error('❌ Error serial (121 o similar):', err.message);
+
+            let msgError = err.message;
+            if (msgError.includes('File not found')) msgError = "GPS not found. Check the COM port.";
+            if (msgError.includes('Access denied')) msgError = "Port in use by another application.";
+
+            console.error(`❌ Serial error: ${msgError}`);
             if (mainWindow) {
                 mainWindow.webContents.send('gps-estado', { conectado: false, error: err.message });
             }
@@ -101,7 +106,7 @@ function iniciarPuerto(pathPuerto) {
 
         gpsConectadoGlobal = true;
         ultimoErrorGps = null;
-        console.log('✅ GPS conectado por serial');
+        console.log('✅ GPS connected via serial');
         if (mainWindow) {
             mainWindow.webContents.send('gps-estado', { conectado: true });
         }
@@ -109,7 +114,7 @@ function iniciarPuerto(pathPuerto) {
 
     parser.on('data', (linea) => {
         // 🛠️ LOG DE DEPURACIÓN: Ver exactamento qué envía el GPS por la terminal
-        console.log("📥 NMEA Recibido:", linea);
+        console.log("📥 NMEA Received:", linea);
 
         // Enviar raw NMEA al frontend para depuración en la consola del navegador
         if (mainWindow) {
@@ -117,7 +122,7 @@ function iniciarPuerto(pathPuerto) {
         }
 
         if (mainWindow && linea.includes('GGA') && linea.split(',')[6] === '0') {
-            mainWindow.webContents.send('gps-estado', { conectado: true, mensaje: 'Buscando satélites (Sin Fix)...' });
+            mainWindow.webContents.send('gps-estado', { conectado: true, mensaje: 'Searching for satellites (No Fix)...' });
         }
 
         const coords = parsearNMEA(linea);
@@ -127,16 +132,16 @@ function iniciarPuerto(pathPuerto) {
     });
 
     port.on('close', () => {
-        console.warn('⚠️ Puerto serial cerrado. Reintentando...');
+        console.warn('⚠️ Serial port closed. Retrying...');
         gpsConectadoGlobal = false;
         if (mainWindow) {
-            mainWindow.webContents.send('gps-estado', { conectado: false, mensaje: 'Conexión perdida' });
+            mainWindow.webContents.send('gps-estado', { conectado: false, mensaje: 'Connection lost' });
         }
         setTimeout(() => conectarGPS(pathPuerto), 5000);
     });
 
     port.on('error', (err) => {
-        console.error('❌ Error en tiempo de ejecución serial:', err.message);
+        console.error('❌ Serial runtime error:', err.message);
     });
 }
 
@@ -171,7 +176,7 @@ function parsearNMEA(frase) {
     ======================= */
     if (partes[0].endsWith('GGA') && partes.length > 8) {
 
-        const fix = parseInt(partes[6], 10);
+        const fix = parseInt(partes[6] || '0', 10);
 
         const lat = convertirADecimal(partes[2], partes[3]);
         const lon = convertirADecimal(partes[4], partes[5]);
@@ -181,8 +186,8 @@ function parsearNMEA(frase) {
         return {
             latitude: lat,
             longitude: lon,
-            satelites: parseInt(partes[7], 10) || 0,
-            precision: parseFloat(partes[8]) || 0,
+            satelites: parseInt(partes[7] || '0', 10),
+            precision: parseFloat(partes[8] || '0'),
             fix,
             tipo: 'GGA'
         };

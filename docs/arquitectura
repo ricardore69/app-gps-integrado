@@ -1,0 +1,220 @@
+# Documentación técnica – Arquitectura general del sistema GeoZapp
+
+## Visión general
+GeoZapp es una aplicación web modular diseñada para realizar levantamientos topográficos, replanteos, cálculos de áreas y visualización de datos GPS. La arquitectura está basada en Firebase como backend y una estructura de módulos independientes en el frontend, cada uno con responsabilidades claras.
+
+El sistema sigue una arquitectura **modular**, **event-driven** y **orientada a flujos de trabajo**, donde cada pantalla representa un módulo funcional.
+
+---
+
+## Componentes principales
+
+### 1. Frontend (cliente)
+Construido en:
+- HTML
+- CSS
+- JavaScript modular
+- Leaflet.js (mapas)
+- Web Bluetooth API (GPS externo)
+
+Pantallas principales:
+- inicio.html
+- levantamiento.html
+- mapa.html
+- replanteo.html
+- poligonos.html
+- login.html
+
+Cada pantalla carga su propio archivo JS especializado.
+
+---
+
+### 2. Backend (Firebase)
+Servicios utilizados:
+- **Firebase Auth** → Manejo de usuarios
+- **Firestore** → Base de datos en la nube
+- **Firebase Hosting** (opcional)
+- **Firebase Storage** (si se agregan fotos o archivos)
+
+Estructura de datos:
+
+usuarios  
+└── usuarioId  
+  ├── nombre  
+  ├── email  
+  └── levantamientos  
+    └── levantamientoId  
+      ├── nombre  
+      ├── fecha  
+      └── puntos  
+        └── puntoId  
+          latitud  
+          longitud  
+          altitud  
+          precision  
+          correlativo  
+
+---
+
+## Arquitectura por módulos
+
+### 🔹 conexion.js
+- Inicializa Firebase
+- Expone `auth`, `db`, `app`
+- Es el módulo base del sistema
+
+### 🔹 inicio.js
+- Verifica autenticación
+- Carga levantamientos del usuario
+- Permite crear nuevos levantamientos
+- Redirige a levantamiento, mapa o replanteo
+
+### 🔹 levantamiento.js
+- Conecta al GPS vía Bluetooth
+- Lee coordenadas en tiempo real
+- Guarda puntos en Firestore
+- Maneja el levantamiento activo
+- Es el módulo central de captura
+
+### 🔹 mapa.js
+- Carga puntos desde Firestore
+- Dibuja marcadores en Leaflet
+- Dibuja polilínea del recorrido
+- Ajusta zoom automáticamente
+
+### 🔹 replanteo.js
+- Carga un punto objetivo
+- Conecta al GPS
+- Calcula distancia y rumbo
+- Da instrucciones para llegar al punto
+
+### 🔹 poligonos.js
+- Carga puntos del levantamiento
+- Calcula área con fórmula Shoelace
+- Calcula perímetro con Haversine
+- Dibuja polígono en Leaflet
+
+### 🔹 utils.js
+- Funciones matemáticas y geodésicas
+- Conversión grados ↔ radianes
+- Distancia Haversine
+- Rumbo
+- Validación de coordenadas
+- Conversión a plano
+
+---
+
+## Flujo general del sistema
+
+### 1. Autenticación
+El usuario inicia sesión → Firebase Auth valida → inicio.js carga datos.
+
+### 2. Selección de levantamiento
+El usuario:
+- Crea uno nuevo  
+o  
+- Selecciona uno existente  
+
+inicio.js redirige según el modo.
+
+### 3. Captura de puntos (levantamiento.js)
+- Conexión al GPS
+- Lectura continua
+- Captura manual de puntos
+- Guardado en Firestore
+
+### 4. Visualización (mapa.js)
+- Carga puntos
+- Dibuja mapa
+- Muestra recorrido
+
+### 5. Replanteo (replanteo.js)
+- Selección de punto objetivo
+- Cálculo de distancia y rumbo
+- Guía al usuario hasta el punto
+
+### 6. Cálculo de áreas (poligonos.js)
+- Carga puntos
+- Cierra polígono
+- Calcula área y perímetro
+
+---
+
+## Comunicación entre módulos
+
+### Comunicación directa
+- Todos los módulos importan `auth` y `db` desde `conexion.js`
+- Todos los módulos leen parámetros desde la URL
+- Todos los módulos usan Firestore como fuente de datos
+
+### Comunicación indirecta
+- levantamiento.js → genera puntos  
+- mapa.js → los visualiza  
+- replanteo.js → usa un punto específico  
+- poligonos.js → usa todos los puntos  
+
+### LocalStorage
+inicio.js guarda:
+- levantamientoActivo
+
+levantamiento.js lo usa para continuar el trabajo.
+
+---
+
+## Arquitectura lógica
+
+1. **Capa de datos (Firestore)**
+   - Usuarios
+   - Levantamientos
+   - Puntos
+
+2. **Capa de servicios**
+   - conexion.js (Firebase)
+   - utils.js (cálculos)
+
+3. **Capa de lógica**
+   - levantamiento.js
+   - replanteo.js
+   - poligonos.js
+
+4. **Capa de presentación**
+   - HTML + CSS
+   - Leaflet.js
+   - DOM
+
+---
+
+## Estilo arquitectónico
+GeoZapp sigue un estilo:
+
+- **Modular**
+- **Basado en eventos**
+- **Orientado a flujos**
+- **Sin servidor (serverless)**
+- **Frontend + Firebase**
+
+No hay backend propio, todo se maneja desde Firestore y Auth.
+
+---
+
+## Ventajas de esta arquitectura
+
+- Muy rápida de desplegar
+- Escalable automáticamente
+- Código simple y mantenible
+- Módulos independientes
+- Ideal para trabajo de campo
+- Sin necesidad de servidores
+
+---
+
+## Limitaciones
+
+- Dependencia total de Firebase
+- Latencia si hay mala conexión
+- Web Bluetooth no funciona en todos los navegadores
+- Firestore tiene límites de lectura/escritura
+
+---
+
+# Fin de la documentación técnica de arquitectura general

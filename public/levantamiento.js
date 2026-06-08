@@ -35,6 +35,7 @@ let notificationTimeout; // Para controlar el tiempo de las notificaciones
 
 let bluetoothDevice = null;
 let bluetoothCharacteristic = null;
+let nmeaBuffer = ""; // Buffer para reconstruir sentencias NMEA
 
 /* =========================
    INICIO
@@ -356,6 +357,25 @@ function actualizarInterfazEstado(estado) {
     statusDiv.textContent = `Estado GPS: ${estado.conectado ? '✅ Conectado' : '❌ ' + (estado.error || estado.mensaje || 'Desconectado')}`;
     statusDiv.style.color = estado.conectado ? "green" : "red";
   }
+}
+
+/**
+ * Muestra avisos visuales en pantalla
+ */
+function mostrarNotificacion(mensaje, tipo = "info") {
+  console.log(`[${tipo.toUpperCase()}] ${mensaje}`);
+  const notif = document.createElement("div");
+  notif.style.position = "fixed";
+  notif.style.top = "20px";
+  notif.style.right = "20px";
+  notif.style.padding = "10px 20px";
+  notif.style.borderRadius = "5px";
+  notif.style.color = "white";
+  notif.style.backgroundColor = tipo === "error" ? "#f44336" : "#2196F3";
+  notif.style.zIndex = "9999";
+  notif.textContent = mensaje;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 3000);
 }
 
 /* =========================

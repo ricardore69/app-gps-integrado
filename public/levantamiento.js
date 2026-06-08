@@ -68,6 +68,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
+    // 💾 Asegurar respaldo: Guardamos el ID activo para evitar errores en recargas accidentales
+    localStorage.setItem("levantamientoActivo", JSON.stringify({ id: levantamientoId }));
+
     cargarPuntos(usuarioId, levantamientoId);
     actualizarUIPorModo();
     actualizarListaPuertos();
@@ -279,7 +282,6 @@ function mostrarBotonBluetooth() {
   const statusDiv = document.getElementById("gps-status");
   if (statusDiv) {
     statusDiv.innerHTML = `
-      <button id="btn-conectar-bt" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
       <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
         🔵 Conectar GPS Bluetooth
       </button>`;

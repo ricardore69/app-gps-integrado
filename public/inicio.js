@@ -56,6 +56,10 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 
+  // Si llegamos aquí, es que nos quedaremos en esta página.
+  // Mostramos la interfaz (que estaba oculta) para evitar el "flash" de carga.
+  document.querySelector(".container").style.display = "block";
+
   const docRef = doc(db, "usuarios", usuarioActual);
   const docSnap = await getDoc(docRef);
 

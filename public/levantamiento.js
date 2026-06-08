@@ -33,6 +33,9 @@ let mapaCentradoInicial = false; // Control para centrar el mapa solo la primera
 let gpsMarker = null; // Declaración formal del marcador
 let notificationTimeout; // Para controlar el tiempo de las notificaciones
 
+let bluetoothDevice = null;
+let bluetoothCharacteristic = null;
+
 /* =========================
    INICIO
 ========================= */
@@ -165,111 +168,184 @@ async function configurarGPS() {
   if (gpsConfigurado) return; // Si ya hay listeners, no agregamos más
   gpsConfigurado = true;
 
-  if (!window.gpsElectron?.onCoordenadas) {
-    console.warn("GPS Electron no disponible");
-    return;
-  }
-
-  // Pedir estado inicial al cargar la página para evitar bloqueo por isGpsConnected = false
-  if (window.gpsElectron.getGpsEstado) {
-    const estadoInicial = await window.gpsElectron.getGpsEstado();
-    console.log("Estado GPS inicial al cargar la página:", estadoInicial);
-    actualizarInterfazEstado(estadoInicial);
-  }
-
-  // Escuchar cambios de estado de conexión
-  window.gpsElectron.onEstado?.((estado) => {
-    actualizarInterfazEstado(estado);
-  });
-
-  // Escuchar NMEA crudo para depuración visual en la consola (Ctrl+Shift+I)
-  window.gpsElectron.onNmeaRaw?.((linea) => {
-    console.log("🛰️ NMEA RAW:", linea);
-  });
-
-  window.gpsElectron.onCoordenadas((data) => {
-    if (!isGpsConnected) return; // No actualizar si el GPS está desconectado
-
-    try {
-      const lat = parseFloat(data.latitude);
-      const lng = parseFloat(data.longitude);
-      const fix = data.fix;
-
-      // Mapeo de calidad de señal para visualizar las correcciones (GGA)
-      const fixLabels = {
-        1: "GPS (SPS)",
-        2: "DGPS 📡",
-        3: "PPS Fix",
-        4: "RTK Fixed 🚀",
-        5: "RTK Float 🛰️",
-      };
-
-      const statusDiv = document.getElementById("gps-status");
-      if (statusDiv) {
-        const fixTexto = fixLabels[fix] || `Fix: ${fix}`;
-        statusDiv.textContent = `Estado GPS: ✅ Conectado (${fixTexto})`;
-        statusDiv.style.color = (fix === 4) ? "#00bcd4" : (fix === 5 ? "#ff9800" : "green");
-      }
-
-      console.log("📡 GPS:", data);
-
-      /* INPUTS (Solo si no estamos editando y el usuario NO está escribiendo en el campo específico) */
-      if (!puntoIdEnEdicion) {
-        const inputsAuto = ["latitud", "longitud", "satelites", "precision"];
-        inputsAuto.forEach(id => {
-          const el = document.getElementById(id);
-          // Solo actualizamos si el usuario NO tiene el foco en este campo
-          if (el && document.activeElement !== el) {
-            const val = id === "latitud" ? data.latitude : (id === "longitud" ? data.longitude : data[id]);
-            el.value = val ?? "";
-          }
-        });
-      }
-      /* SPANS */
-      const latSpan = document.getElementById("lat");
-      const lonSpan = document.getElementById("lon");
-
-      if (latSpan) latSpan.textContent = data.latitude ?? "--";
-      if (lonSpan) lonSpan.textContent = data.longitude ?? "--";
-
-      /* MAPA */
-      if (window.mapInstance && !isNaN(lat) && !isNaN(lng)) {
-
-        const coords = [lat, lng];
-
-        // Centrar automáticamente solo la primera vez o si el usuario limpia
-        if (!mapaCentradoInicial) {
-          window.mapInstance.setView(coords, 18);
-          mapaCentradoInicial = true;
-        } else {
-          // Si ya está centrado, solo movemos el centro pero respetamos el zoom del usuario
-          window.mapInstance.panTo(coords);
-        }
-
-        if (!gpsMarker) {
-          // Marcador de posición en tiempo real (Rojo y más grande)
-          gpsMarker = L.circleMarker(coords, {
-            radius: 8,
-            fillColor: "red",
-            color: "white",
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-          }).addTo(window.mapInstance);
-        } else {
-          gpsMarker.setLatLng(coords);
-        }
-      }
-
-      // 🔥 ACTIVAR REPLANTEO: Si estamos en modo replanteo, enviar coordenadas al módulo
-      if (modoAccion === "replanteo") {
-        procesarGpsEnReplanteo(lat, lng);
-      }
-
-    } catch (e) {
-      console.error("GPS error:", e);
+  // MODO CELULAR (Browser)
+  if (!window.gpsElectron) {
+    console.log("📱 Modo Navegador detectado");
+    mostrarBotonBluetooth();
+  } else {
+    // MODO PC (Electron)
+    console.log("💻 Modo Electron detectado");
+    // Pedir estado inicial al cargar la página para evitar bloqueo por isGpsConnected = false
+    if (window.gpsElectron.getGpsEstado) {
+      const estadoInicial = await window.gpsElectron.getGpsEstado();
+      console.log("Estado GPS inicial al cargar la página:", estadoInicial);
+      actualizarInterfazEstado(estadoInicial);
     }
-  });
+
+    // Escuchar cambios de estado de conexión
+    window.gpsElectron.onEstado?.((estado) => {
+      actualizarInterfazEstado(estado);
+    });
+
+    // Escuchar NMEA crudo para depuración visual en la consola (Ctrl+Shift+I)
+    window.gpsElectron.onNmeaRaw?.((linea) => {
+      console.log("🛰️ NMEA RAW:", linea);
+    });
+
+    window.gpsElectron.onCoordenadas((data) => {
+      procesarDatosEntradaGps(data);
+    });
+  }
+}
+
+/**
+ * Función unificada para procesar coordenadas (vengan de Serial o Bluetooth)
+ */
+function procesarDatosEntradaGps(data) {
+  if (!isGpsConnected) return;
+
+  try {
+    const lat = parseFloat(data.latitude);
+    const lng = parseFloat(data.longitude);
+    const fix = data.fix;
+
+    const fixLabels = { 1: "GPS (SPS)", 2: "DGPS 📡", 3: "PPS Fix", 4: "RTK Fixed 🚀", 5: "RTK Float 🛰️" };
+    const statusDiv = document.getElementById("gps-status");
+    if (statusDiv) {
+      const fixTexto = fixLabels[fix] || `Fix: ${fix}`;
+      statusDiv.textContent = `Estado GPS: ✅ Conectado (${fixTexto})`;
+      statusDiv.style.color = (fix === 4) ? "#00bcd4" : (fix === 5 ? "#ff9800" : "green");
+    }
+
+    if (!puntoIdEnEdicion) {
+      const inputsAuto = ["latitud", "longitud", "satelites", "precision"];
+      inputsAuto.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) {
+          const val = id === "latitud" ? data.latitude : (id === "longitud" ? data.longitude : data[id]);
+          el.value = val ?? "";
+        }
+      });
+    }
+
+    const latSpan = document.getElementById("lat");
+    const lonSpan = document.getElementById("lon");
+    if (latSpan) latSpan.textContent = data.latitude ?? "--";
+    if (lonSpan) lonSpan.textContent = data.longitude ?? "--";
+
+    if (window.mapInstance && !isNaN(lat) && !isNaN(lng)) {
+      const coords = [lat, lng];
+      if (!mapaCentradoInicial) {
+        window.mapInstance.setView(coords, 18);
+        mapaCentradoInicial = true;
+      } else {
+        window.mapInstance.panTo(coords);
+      }
+
+      if (!gpsMarker) {
+        gpsMarker = L.circleMarker(coords, { radius: 8, fillColor: "red", color: "white", weight: 2, opacity: 1, fillOpacity: 0.9 }).addTo(window.mapInstance);
+      } else {
+        gpsMarker.setLatLng(coords);
+      }
+    }
+
+    if (modoAccion === "replanteo") {
+      procesarGpsEnReplanteo(lat, lng);
+    }
+  } catch (e) {
+    console.error("Error al procesar datos GPS:", e);
+  }
+}
+
+/* =========================
+   WEB BLUETOOTH (CELULAR)
+========================= */
+function mostrarBotonBluetooth() {
+  const statusDiv = document.getElementById("gps-status");
+  if (statusDiv) {
+    statusDiv.innerHTML = `
+      <button id="btn-conectar-bt" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+        🔵 Conectar GPS Bluetooth
+      </button>`;
+    document.getElementById("btn-conectar-bt")?.addEventListener("click", conectarBluetooth);
+  }
+}
+
+async function conectarBluetooth() {
+  try {
+    console.log("Buscando GPS Bluetooth...");
+    // Filtro estándar para SPP (Serial Port Profile)
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: ['00001101-0000-1000-8000-00805f9b34fb'] }],
+      optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
+    });
+
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+    const characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
+
+    bluetoothCharacteristic = characteristic;
+    await characteristic.startNotifications();
+
+    characteristic.addEventListener('characteristicvaluechanged', (event) => {
+      const decoder = new TextDecoder();
+      const text = decoder.decode(event.target.value);
+      nmeaBuffer += text;
+
+      // Procesar línea por línea
+      let lineas = nmeaBuffer.split(/\r?\n/);
+      nmeaBuffer = lineas.pop(); // Mantener el fragmento incompleto
+
+      lineas.forEach(linea => {
+        if (linea.includes("GGA")) {
+          const data = parsearGgaManual(linea);
+          if (data) procesarDatosEntradaGps(data);
+        }
+      });
+    });
+
+    isGpsConnected = true;
+    actualizarInterfazEstado({ conectado: true, mensaje: "Bluetooth OK" });
+    console.log("✅ GPS Bluetooth conectado");
+
+  } catch (error) {
+    console.error("Error Bluetooth:", error);
+    alert("No se pudo conectar: " + error.message);
+  }
+}
+
+/**
+ * Parser simple de sentencias GGA para el navegador
+ */
+function parsearGgaManual(linea) {
+  const p = linea.split(",");
+  if (p.length < 10) return null;
+
+  const lat = convertirNmeaADecimal(p[2], p[3]);
+  const lon = convertirNmeaADecimal(p[4], p[5]);
+  const fix = parseInt(p[6] || "0");
+  const sats = parseInt(p[7] || "0");
+  const prec = parseFloat(p[8] || "0");
+
+  if (!lat || !lon) return null;
+
+  return {
+    latitude: lat,
+    longitude: lon,
+    satelites: sats,
+    precision: prec,
+    fix: fix
+  };
+}
+
+function convertirNmeaADecimal(valor, dir) {
+  if (!valor || valor.length < 4) return null;
+  const dot = valor.indexOf(".");
+  const deg = parseInt(valor.slice(0, dot - 2));
+  const min = parseFloat(valor.slice(dot - 2));
+  let dec = deg + (min / 60);
+  if (dir === 'S' || dir === 'W') dec *= -1;
+  return parseFloat(dec.toFixed(8));
 }
 
 function actualizarInterfazEstado(estado) {

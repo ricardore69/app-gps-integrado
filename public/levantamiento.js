@@ -21,7 +21,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const params = new URLSearchParams(window.location.search);
-const levantamientoId = params.get("id");
+let levantamientoId = params.get("id");
 let modoAccion = params.get("accion") || "levantamiento";
 
 let usuarioId = null;
@@ -53,8 +53,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     usuarioId = user.uid;
 
     if (!levantamientoId) {
-      mostrarNotificacion("No hay levantamiento seleccionado", "error");
-      return;
+      // 🔍 BUSCAR RESPALDO: Si no hay ID en la URL, buscar en la memoria del celular
+      const respaldo = localStorage.getItem("levantamientoActivo");
+      if (respaldo) {
+        const datos = JSON.parse(respaldo);
+        levantamientoId = datos.id;
+        console.log("Reutilizando levantamiento de la memoria:", levantamientoId);
+      } else {
+        mostrarNotificacion("Redirigiendo: selecciona un levantamiento", "error");
+        setTimeout(() => {
+          window.location.href = "inicio.html";
+        }, 2000);
+        return;
+      }
     }
 
     cargarPuntos(usuarioId, levantamientoId);
@@ -68,7 +79,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("guardar")?.addEventListener("click", guardarPunto);
 
   document.getElementById("regresar")?.addEventListener("click", () => {
-    window.location.href = "inicio.html";
+    // Avisamos que queremos cambiar de proyecto para que no nos auto-redirija de vuelta
+    window.location.href = "inicio.html?cambiar=true";
   });
 
   document.getElementById("limpiar")?.addEventListener("click", () => {
@@ -103,6 +115,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.error("Error al cerrar sesión:", err);
     }
   });
+
+  document.getElementById("btn-exportar")?.addEventListener("click", exportarACV);
 });
 
 async function actualizarListaPuertos() {
@@ -506,6 +520,43 @@ export async function cargarPuntos(usuarioId, levantamientoId) {
     cargarPuntosEnMapa(puntos);
   } catch (err) {
     console.error("Error al cargar puntos:", err);
+  }
+}
+
+/* =========================
+   EXPORTAR DATOS
+========================= */
+async function exportarACV() {
+  try {
+    const ref = collection(db, `usuarios/${usuarioId}/levantamientos/${levantamientoId}/puntos`);
+    const q = query(ref, orderBy("timestamp", "asc"));
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      mostrarNotificacion("No hay puntos para exportar", "error");
+      return;
+    }
+
+    let csvContent = "Punto,Latitud,Longitud,Descripcion,Satelites,Precision,Fecha\n";
+    let i = 1;
+
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      const fecha = d.timestamp?.toDate().toISOString() || "";
+      csvContent += `${i++},${d.latitud},${d.longitud},"${d.descripcion || ""}",${d.satelites || 0},${d.precision || 0},${fecha}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `levantamiento_${levantamientoId}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (err) {
+    console.error("Error al exportar:", err);
   }
 }
 

@@ -24,6 +24,9 @@ const nuevoLevantamientoForm = document.getElementById(
   "nuevoLevantamientoForm"
 );
 
+const params = new URLSearchParams(window.location.search);
+const modoCambarProyecto = params.get("cambiar") === "true";
+
 // Variables de estado
 let usuarioActual = null;
 let modoSeleccionado = "levantamiento"; // Modo por defecto
@@ -39,10 +42,19 @@ onAuthStateChanged(auth, async (user) => {
     return;
   } // Si el usuario no está autenticado, redirigir al login
 
-  localStorage.removeItem("levantamientoActivo"); // Limpiar levantamiento activo
-
   console.log("Usuario autenticado:", user.email);
   usuarioActual = user.uid;
+
+  // 🚀 AUTO-REANUDAR: Si ya hay un levantamiento en memoria y no venimos a "cambiar"
+  if (!modoCambarProyecto) {
+    const respaldo = localStorage.getItem("levantamientoActivo");
+    if (respaldo) {
+      const datos = JSON.parse(respaldo);
+      console.log("Reanudando levantamiento:", datos.nombre);
+      window.location.href = `levantamiento.html?id=${datos.id}&accion=${modoSeleccionado}`;
+      return;
+    }
+  }
 
   const docRef = doc(db, "usuarios", usuarioActual);
   const docSnap = await getDoc(docRef);
@@ -102,6 +114,15 @@ selectLevantamientos.addEventListener("change", (e) => {
   if (selected === "nuevo") {
     nuevoLevantamientoForm.style.display = "block";
   } else if (selected) {
+    // 💾 GUARDAR EN MEMORIA: Para que el celular recuerde qué levantamiento abriste
+    const nombreSeleccionado = e.target.options[e.target.selectedIndex].text;
+    localStorage.setItem(
+      "levantamientoActivo",
+      JSON.stringify({
+        id: selected,
+        nombre: nombreSeleccionado,
+      })
+    );
     mensajeLevantamiento.textContent = `Abriendo levantamiento en modo ${modoSeleccionado}...`;
     setTimeout(() => {
       window.location.href = `levantamiento.html?id=${selected}&accion=${modoSeleccionado}`;

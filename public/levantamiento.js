@@ -280,6 +280,7 @@ function mostrarBotonBluetooth() {
   if (statusDiv) {
     statusDiv.innerHTML = `
       <button id="btn-conectar-bt" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+      <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
         🔵 Conectar GPS Bluetooth
       </button>`;
     document.getElementById("btn-conectar-bt")?.addEventListener("click", conectarBluetooth);
@@ -288,6 +289,11 @@ function mostrarBotonBluetooth() {
 
 async function conectarBluetooth() {
   try {
+    if (!levantamientoId) {
+      mostrarNotificacion("Error: No hay un levantamiento activo para vincular.", "error");
+      return;
+    }
+
     console.log("Buscando GPS Bluetooth...");
     // Filtro estándar para SPP (Serial Port Profile)
     const device = await navigator.bluetooth.requestDevice({

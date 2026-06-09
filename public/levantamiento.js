@@ -236,11 +236,11 @@ function procesarDatosEntradaGps(data) {
     }
 
     if (!puntoIdEnEdicion) {
-      const inputsAuto = ["latitud", "longitud", "satelites", "precision"];
+      const inputsAuto = ["latitud", "longitud", "altitud", "satelites", "precision"];
       inputsAuto.forEach(id => {
         const el = document.getElementById(id);
         if (el && document.activeElement !== el) {
-          const val = id === "latitud" ? data.latitude : (id === "longitud" ? data.longitude : data[id]);
+          const val = id === "latitud" ? data.latitude : (id === "longitud" ? data.longitude : (id === "altitud" ? data.altitude : data[id]));
           el.value = val ?? "";
         }
       });
@@ -248,8 +248,15 @@ function procesarDatosEntradaGps(data) {
 
     const latSpan = document.getElementById("lat");
     const lonSpan = document.getElementById("lon");
+    const altSpan = document.getElementById("alt");
+    const satSpan = document.getElementById("sat");
+    const precSpan = document.getElementById("prec");
+
     if (latSpan) latSpan.textContent = data.latitude ?? "--";
     if (lonSpan) lonSpan.textContent = data.longitude ?? "--";
+    if (altSpan) altSpan.textContent = data.altitude ?? "--";
+    if (satSpan) satSpan.textContent = data.satelites ?? "--";
+    if (precSpan) precSpan.textContent = data.precision ?? (data.accuracy ?? "--");
 
     if (window.mapInstance && !isNaN(lat) && !isNaN(lng)) {
       const coords = [lat, lng];
@@ -335,10 +342,11 @@ function conectarGpsSistema() {
       const data = {
         latitude: position.coords.latitude.toFixed(8),
         longitude: position.coords.longitude.toFixed(8),
+        altitude: position.coords.altitude ? position.coords.altitude.toFixed(2) : 0,
         satelites: 0, // El API Web no entrega número de satélites
-        precision: position.coords.accuracy.toFixed(2),
-        // Simulamos el fix basado en la precisión que reporta el Mock Provider
-        fix: position.coords.accuracy < 1.0 ? 4 : (position.coords.accuracy < 3.0 ? 5 : 2)
+        precision: position.coords.accuracy.toFixed(3),
+        // Umbrales profesionales: <5cm = Fixed, <60cm = Float
+        fix: position.coords.accuracy < 0.05 ? 4 : (position.coords.accuracy < 0.60 ? 5 : 2)
       };
       procesarDatosEntradaGps(data);
     },
@@ -346,6 +354,8 @@ function conectarGpsSistema() {
       console.error("Error Geolocation:", error);
       mostrarNotificacion("Error: " + error.message, "error");
       actualizarInterfazEstado({ conectado: false, mensaje: error.message });
+      if (btn) btn.textContent = "📱 GPS Sistema";
+      watchId = null;
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
@@ -431,6 +441,7 @@ function parsearGgaManual(linea) {
   return {
     latitude: lat,
     longitude: lon,
+    altitude: parseFloat(p[9] || "0"),
     satelites: sats,
     precision: prec,
     fix: fix
@@ -513,23 +524,26 @@ export async function cargarPuntos(usuarioId, levantamientoId) {
       // 2. Longitud
       fila.insertCell(2).textContent = d.longitud ?? "";
 
-      // 3. DESCRIPCIÓN ✔ (ESTA ES LA QUE TE FALTA VISUALMENTE)
-      fila.insertCell(3).textContent = d.descripcion ?? "";
+      // 3. Altitud
+      fila.insertCell(3).textContent = d.altitud ?? "";
 
-      // 4. Satélites
-      fila.insertCell(4).textContent = d.satelites ?? "";
+      // 4. Descripción
+      fila.insertCell(4).textContent = d.descripcion ?? "";
 
-      // 5. Precisión
-      fila.insertCell(5).textContent = d.precision ?? "";
+      // 5. Satélites
+      fila.insertCell(5).textContent = d.satelites ?? "";
 
-      // 6. Fecha
+      // 6. Precisión
+      fila.insertCell(6).textContent = d.precision ?? "";
+
+      // 7. Fecha
       const fecha = d.timestamp?.toDate?.()
         ? d.timestamp.toDate().toLocaleString()
         : "";
 
-      fila.insertCell(6).textContent = fecha;
+      fila.insertCell(7).textContent = fecha;
 
-      // 7. Seleccionar
+      // 8. Seleccionar
       const btnSeleccionar = document.createElement("button");
       btnSeleccionar.textContent = "✔";
       btnSeleccionar.classList.add("seleccionar"); // Clase para que main.js y replanteo.js lo detecten
@@ -562,28 +576,29 @@ export async function cargarPuntos(usuarioId, levantamientoId) {
           }
         }
       });
-      fila.insertCell(7).appendChild(btnSeleccionar);
+      fila.insertCell(8).appendChild(btnSeleccionar);
 
-      // 8. Editar
+      // 9. Editar
       const btnEditar = document.createElement("button");
       btnEditar.textContent = "✏️";
       btnEditar.classList.add("editar-punto"); // Clase para identificar el botón de editar
       btnEditar.dataset.id = docSnap.id; // ID del documento para editar
       btnEditar.dataset.lat = d.latitud;
       btnEditar.dataset.lng = d.longitud;
+      btnEditar.dataset.alt = d.altitud;
       btnEditar.dataset.desc = d.descripcion || "";
       btnEditar.dataset.sat = d.satelites || 0;
       btnEditar.dataset.prec = d.precision || 0;
       btnEditar.addEventListener("click", () => editarPunto(docSnap.id, d)); // Añadir listener
-      fila.insertCell(8).appendChild(btnEditar);
+      fila.insertCell(9).appendChild(btnEditar);
 
-      // 9. Eliminar
+      // 10. Eliminar
       const btnEliminar = document.createElement("button");
       btnEliminar.textContent = "🗑";
       btnEliminar.classList.add("eliminar-punto"); // Clase para identificar el botón de eliminar
       btnEliminar.dataset.id = docSnap.id; // ID del documento para eliminar
       btnEliminar.addEventListener("click", () => eliminarPunto(docSnap.id)); // Añadir listener
-      fila.insertCell(9).appendChild(btnEliminar);
+      fila.insertCell(10).appendChild(btnEliminar);
 
 
       // =========================
@@ -621,13 +636,13 @@ async function exportarACV() {
       return;
     }
 
-    let csvContent = "Punto,Latitud,Longitud,Descripcion,Satelites,Precision,Fecha\n";
+    let csvContent = "Punto,Latitud,Longitud,Altitud,Descripcion,Satelites,Precision,Fecha\n";
     let i = 1;
 
     snap.forEach(docSnap => {
       const d = docSnap.data();
       const fecha = d.timestamp?.toDate().toISOString() || "";
-      csvContent += `${i++},${d.latitud},${d.longitud},"${d.descripcion || ""}",${d.satelites || 0},${d.precision || 0},${fecha}\n`;
+      csvContent += `${i++},${d.latitud},${d.longitud},${d.altitud || 0},"${d.descripcion || ""}",${d.satelites || 0},${d.precision || 0},${fecha}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -653,6 +668,7 @@ async function guardarPunto() {
 
   const lat = document.getElementById("latitud")?.value;
   const lon = document.getElementById("longitud")?.value;
+  const alt = document.getElementById("altitud")?.value;
   const sat = document.getElementById("satelites")?.value;
   const prec = document.getElementById("precision")?.value;
   const desc = document.getElementById("descripcion")?.value || "";
@@ -672,6 +688,7 @@ async function guardarPunto() {
   const punto = {
     latitud: parseFloat(lat),
     longitud: parseFloat(lon),
+    altitud: alt ? parseFloat(alt) : 0,
     descripcion: desc,
     satelites: sat ? parseInt(sat) : 0,
     precision: prec ? parseFloat(prec) : 0,
@@ -702,7 +719,7 @@ async function guardarPunto() {
     cargarPuntos(usuarioId, levantamientoId);
 
     // Limpiar campos
-    ["latitud", "longitud", "descripcion", "satelites", "precision"].forEach(id => {
+    ["latitud", "longitud", "altitud", "descripcion", "satelites", "precision"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
@@ -723,6 +740,7 @@ function editarPunto(puntoId, datosPunto) {
   // Cargar datos en el formulario
   document.getElementById("latitud").value = datosPunto.latitud ?? "";
   document.getElementById("longitud").value = datosPunto.longitud ?? "";
+  document.getElementById("altitud").value = datosPunto.altitud ?? "";
   document.getElementById("descripcion").value = datosPunto.descripcion ?? "";
   document.getElementById("satelites").value = datosPunto.satelites ?? "";
   document.getElementById("precision").value = datosPunto.precision ?? "";

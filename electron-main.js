@@ -186,6 +186,7 @@ function parsearNMEA(frase) {
         return {
             latitude: lat,
             longitude: lon,
+            altitude: parseFloat(partes[9] || '0'),
             satelites: parseInt(partes[7] || '0', 10),
             precision: parseFloat(partes[8] || '0'),
             fix,

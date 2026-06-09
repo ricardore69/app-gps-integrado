@@ -282,28 +282,87 @@ function mostrarBotonBluetooth() {
   const statusDiv = document.getElementById("gps-status");
   if (statusDiv) {
     statusDiv.innerHTML = `
-      <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-        🔵 Conectar GPS Bluetooth
-      </button>`;
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+          🔵 Bluetooth
+        </button>
+        <button id="btn-conectar-usb" type="button" style="padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+          🔌 USB OTG
+        </button>
+      </div>`;
     document.getElementById("btn-conectar-bt")?.addEventListener("click", conectarBluetooth);
+    document.getElementById("btn-conectar-usb")?.addEventListener("click", conectarUSB);
+  }
+}
+
+/**
+ * Conexión vía USB OTG usando Web Serial API (Soportado en Chrome Android)
+ */
+async function conectarUSB() {
+  if (!("serial" in navigator)) {
+    alert("Tu navegador no soporta conexión USB Serial. Usa Chrome en Android.");
+    return;
+  }
+
+  try {
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+
+    isGpsConnected = true;
+    actualizarInterfazEstado({ conectado: true, mensaje: "USB conectado" });
+
+    const decoder = new TextDecoderStream();
+    const readableStreamClosed = port.readable.pipeTo(decoder.writable);
+    const reader = decoder.readable.getReader();
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      nmeaBuffer += value;
+      let lineas = nmeaBuffer.split(/\r?\n/);
+      nmeaBuffer = lineas.pop();
+
+      lineas.forEach(linea => {
+        if (linea.includes("GGA")) {
+          const data = parsearGgaManual(linea);
+          if (data) procesarDatosEntradaGps(data);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error USB Serial:", error);
+    alert("Error al conectar USB: " + error.message);
   }
 }
 
 async function conectarBluetooth() {
   try {
+    if (!navigator.bluetooth) {
+      alert("Tu navegador no soporta Web Bluetooth o no estás usando una conexión segura (HTTPS).");
+      return;
+    }
+
     if (!levantamientoId) {
       mostrarNotificacion("Error: No hay un levantamiento activo para vincular.", "error");
       return;
     }
 
-    console.log("Buscando GPS Bluetooth...");
-    // Filtro estándar para SPP (Serial Port Profile)
+    console.log("Abriendo selector de Bluetooth... Asegúrate de que el GPS no esté conectado a otra app.");
+
+    // Usamos acceptAllDevices: true para que el navegador muestre todos los dispositivos cercanos
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: ['00001101-0000-1000-8000-00805f9b34fb'] }],
+      acceptAllDevices: true,
       optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
     });
 
+    console.log("Dispositivo seleccionado:", device.name);
+    actualizarInterfazEstado({ conectado: false, mensaje: "Conectando a " + device.name + "..." });
+
     const server = await device.gatt.connect();
+
+    // Intentamos acceder al servicio. Nota: Muchos GPS clásicos no permiten acceso GATT vía navegador
+    // por seguridad. Si falla aquí, el dispositivo es Bluetooth Classic y no BLE.
     const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
     const characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
 
@@ -313,11 +372,13 @@ async function conectarBluetooth() {
     characteristic.addEventListener('characteristicvaluechanged', (event) => {
       const decoder = new TextDecoder();
       const text = decoder.decode(event.target.value);
-      nmeaBuffer += text;
 
-      // Procesar línea por línea
+      // Log para depuración
+      console.log("📥 BT Data:", text);
+
+      nmeaBuffer += text;
       let lineas = nmeaBuffer.split(/\r?\n/);
-      nmeaBuffer = lineas.pop(); // Mantener el fragmento incompleto
+      nmeaBuffer = lineas.pop();
 
       lineas.forEach(linea => {
         if (linea.includes("GGA")) {

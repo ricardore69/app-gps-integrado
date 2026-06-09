@@ -187,11 +187,10 @@ async function configurarGPS() {
   if (gpsConfigurado) return; // Si ya hay listeners, no agregamos más
   gpsConfigurado = true;
 
-  // MODO CELULAR (Browser)
-  if (!window.gpsElectron) {
-    console.log("📱 Modo Navegador detectado");
-    mostrarBotonBluetooth();
-  } else {
+  // Mostramos los botones de conexión siempre
+  mostrarBotonesConexion();
+
+  if (window.gpsElectron) {
     // MODO PC (Electron)
     console.log("💻 Modo Electron detectado");
     // Pedir estado inicial al cargar la página para evitar bloqueo por isGpsConnected = false
@@ -277,23 +276,32 @@ function procesarDatosEntradaGps(data) {
 }
 
 /* =========================
-   WEB BLUETOOTH (CELULAR)
+   BOTONES DE CONEXIÓN
 ========================= */
-function mostrarBotonBluetooth() {
+function mostrarBotonesConexion() {
   const statusDiv = document.getElementById("gps-status");
-  if (statusDiv) {
-    statusDiv.innerHTML = `
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-          🔵 Bluetooth
-        </button>
-        <button id="btn-conectar-sistema" type="button" style="padding: 10px; background: #9C27B0; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-          📱 GPS Sistema
-        </button>
-      </div>`;
-    document.getElementById("btn-conectar-bt")?.addEventListener("click", conectarBluetooth);
-    document.getElementById("btn-conectar-sistema")?.addEventListener("click", conectarGpsSistema);
+  if (!statusDiv) return;
+
+  // El botón morado de Sistema es útil tanto en PC como en Móvil
+  let html = `
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <button id="btn-conectar-sistema" type="button" style="padding: 10px; background: #9C27B0; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+        📱 GPS Sistema (Lefebure/Mock)
+      </button>`;
+
+  // El de Bluetooth solo lo mostramos si no estamos en Electron
+  if (!window.gpsElectron) {
+    html += `
+      <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+        🔵 Bluetooth Directo
+      </button>`;
   }
+
+  html += `</div>`;
+  statusDiv.innerHTML = html;
+
+  document.getElementById("btn-conectar-sistema")?.addEventListener("click", conectarGpsSistema);
+  document.getElementById("btn-conectar-bt")?.addEventListener("click", conectarBluetooth);
 }
 
 /**

@@ -36,6 +36,7 @@ let notificationTimeout; // Para controlar el tiempo de las notificaciones
 let bluetoothDevice = null;
 let bluetoothCharacteristic = null;
 let nmeaBuffer = ""; // Buffer para reconstruir sentencias NMEA
+let watchId = null; // ID para el seguimiento del GPS del sistema
 
 /* =========================
    INICIO
@@ -286,54 +287,60 @@ function mostrarBotonBluetooth() {
         <button id="btn-conectar-bt" type="button" style="padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
           🔵 Bluetooth
         </button>
-        <button id="btn-conectar-usb" type="button" style="padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
-          🔌 USB OTG
+        <button id="btn-conectar-sistema" type="button" style="padding: 10px; background: #9C27B0; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+          📱 GPS Sistema
         </button>
       </div>`;
     document.getElementById("btn-conectar-bt")?.addEventListener("click", conectarBluetooth);
-    document.getElementById("btn-conectar-usb")?.addEventListener("click", conectarUSB);
+    document.getElementById("btn-conectar-sistema")?.addEventListener("click", conectarGpsSistema);
   }
 }
 
 /**
- * Conexión vía USB OTG usando Web Serial API (Soportado en Chrome Android)
+ * Conecta al GPS interno del sistema. 
+ * Ideal para usar con Mock Locations (Lefebure, GPS Connector, etc.)
  */
-async function conectarUSB() {
-  if (!("serial" in navigator)) {
-    alert("Tu navegador no soporta conexión USB Serial. Usa Chrome en Android.");
+function conectarGpsSistema() {
+  const btn = document.getElementById("btn-conectar-sistema");
+
+  if (!navigator.geolocation) {
+    alert("Tu navegador no soporta Geolocalización.");
     return;
   }
 
-  try {
-    const port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 9600 });
-
-    isGpsConnected = true;
-    actualizarInterfazEstado({ conectado: true, mensaje: "USB conectado" });
-
-    const decoder = new TextDecoderStream();
-    const readableStreamClosed = port.readable.pipeTo(decoder.writable);
-    const reader = decoder.readable.getReader();
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      nmeaBuffer += value;
-      let lineas = nmeaBuffer.split(/\r?\n/);
-      nmeaBuffer = lineas.pop();
-
-      lineas.forEach(linea => {
-        if (linea.includes("GGA")) {
-          const data = parsearGgaManual(linea);
-          if (data) procesarDatosEntradaGps(data);
-        }
-      });
-    }
-  } catch (error) {
-    console.error("Error USB Serial:", error);
-    alert("Error al conectar USB: " + error.message);
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    if (btn) btn.textContent = "📱 GPS Sistema";
+    actualizarInterfazEstado({ conectado: false, mensaje: "GPS Sistema detenido" });
+    return;
   }
+
+  mostrarNotificacion("Iniciando GPS del sistema (Lefebure/Mock)...");
+  if (btn) btn.textContent = "🛑 Detener GPS";
+
+  watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      // Marcamos como conectado antes de procesar para que pase el filtro de isGpsConnected
+      actualizarInterfazEstado({ conectado: true, mensaje: "GPS Sistema OK" });
+
+      const data = {
+        latitude: position.coords.latitude.toFixed(8),
+        longitude: position.coords.longitude.toFixed(8),
+        satelites: 0, // El API Web no entrega número de satélites
+        precision: position.coords.accuracy.toFixed(2),
+        // Simulamos el fix basado en la precisión que reporta el Mock Provider
+        fix: position.coords.accuracy < 1.0 ? 4 : (position.coords.accuracy < 3.0 ? 5 : 2)
+      };
+      procesarDatosEntradaGps(data);
+    },
+    (error) => {
+      console.error("Error Geolocation:", error);
+      mostrarNotificacion("Error: " + error.message, "error");
+      actualizarInterfazEstado({ conectado: false, mensaje: error.message });
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
 }
 
 async function conectarBluetooth() {
